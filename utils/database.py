@@ -15,7 +15,7 @@ cfg = Config()  # Set the DATABRICKS_HOST environment variable when running loca
 
 
 @st.cache_resource  # connection is cached
-def get_connection(http_path):
+def get_connection(http_path=os.getenv("DATABRICKS_HTTP_PATH")):
     return sql.connect(
         server_hostname=cfg.host,
         http_path=http_path,
