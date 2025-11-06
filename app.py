@@ -213,7 +213,7 @@ def main():
 
 if __name__ == "__main__":
     # Check if required environment variables are set
-    required_vars = ["DATABRICKS_SERVER_HOSTNAME", "DATABRICKS_HTTP_PATH", "DATABRICKS_TOKEN"]
+    required_vars = ["DATABRICKS_SERVER_HOSTNAME", "DATABRICKS_HTTP_PATH"]
     missing_vars = [var for var in required_vars if not os.getenv(var)]
 
     if missing_vars:
@@ -224,7 +224,6 @@ if __name__ == "__main__":
         ```
         DATABRICKS_SERVER_HOSTNAME=your-workspace.cloud.databricks.com
         DATABRICKS_HTTP_PATH=/sql/1.0/warehouses/your-warehouse-id
-        DATABRICKS_TOKEN=your-personal-access-token
         ```
         """
         )
