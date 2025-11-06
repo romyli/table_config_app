@@ -7,28 +7,26 @@ import pandas as pd
 from databricks import sql
 import os
 import json
-from dotenv import load_dotenv
 from utils.config import FULL_TABLE_NAME
-
-# Load environment variables
-load_dotenv()
+from databricks.sdk.core import Config
 
 
-@st.cache_resource
-def get_connection():
-    """
-    Create a connection to Databricks SQL warehouse.
-    Uses environment variables for credentials.
-    """
-    try:
-        connection = sql.connect(
-            server_hostname=os.getenv("DATABRICKS_SERVER_HOSTNAME"), http_path=os.getenv("DATABRICKS_HTTP_PATH"), access_token=os.getenv("DATABRICKS_TOKEN")
-        )
-        return connection
-    except Exception as e:
-        st.error(f"❌ Failed to connect to Databricks: {str(e)}")
-        st.info("Please check your .env file has the correct credentials")
-        return None
+cfg = Config()  # Set the DATABRICKS_HOST environment variable when running locally
+
+
+@st.cache_resource  # connection is cached
+def get_connection(http_path):
+    return sql.connect(
+        server_hostname=cfg.host,
+        http_path=http_path,
+        credentials_provider=lambda: cfg.authenticate,
+    )
+
+
+def execute_query(query, conn):
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+        return cursor.fetchall_arrow().to_pandas()
 
 
 def fetch_table_list():
@@ -39,24 +37,8 @@ def fetch_table_list():
     if conn is None:
         return None
 
-    try:
-        cursor = conn.cursor()
-        query = f"SELECT TableKey, SourceSystem, TableName, DataSchema FROM {FULL_TABLE_NAME} ORDER BY SourceSystem, TableName"
-        cursor.execute(query)
-
-        # Fetch data and column names
-        columns = [desc[0] for desc in cursor.description]
-        data = cursor.fetchall()
-
-        cursor.close()
-
-        # Convert to pandas DataFrame
-        df = pd.DataFrame(data, columns=columns)
-        return df
-
-    except Exception as e:
-        st.error(f"❌ Error fetching data: {str(e)}")
-        return None
+    query = f"SELECT TableKey, SourceSystem, TableName, DataSchema FROM {FULL_TABLE_NAME} ORDER BY SourceSystem, TableName"
+    return execute_query(query, conn)
 
 
 def fetch_table_config(TableKey):
@@ -67,24 +49,9 @@ def fetch_table_config(TableKey):
     if conn is None:
         return None
 
-    try:
-        cursor = conn.cursor()
-        query = f"SELECT * FROM {FULL_TABLE_NAME} WHERE TableKey = '{TableKey}'"
-        cursor.execute(query)
+    query = f"SELECT * FROM {FULL_TABLE_NAME} WHERE TableKey = '{TableKey}'"
 
-        # Fetch data and column names
-        columns = [desc[0] for desc in cursor.description]
-        data = cursor.fetchone()
-
-        cursor.close()
-
-        if data:
-            return dict(zip(columns, data))
-        return None
-
-    except Exception as e:
-        st.error(f"❌ Error fetching table config: {str(e)}")
-        return None
+    return execute_query(query, conn)
 
 
 def get_table_schema():
@@ -95,21 +62,8 @@ def get_table_schema():
     if conn is None:
         return None
 
-    try:
-        cursor = conn.cursor()
-        query = f"DESCRIBE {FULL_TABLE_NAME}"
-        cursor.execute(query)
-
-        schema_data = cursor.fetchall()
-        cursor.close()
-
-        # Parse schema information
-        schema_df = pd.DataFrame(schema_data, columns=["col_name", "data_type", "comment"])
-        return schema_df
-
-    except Exception as e:
-        st.error(f"❌ Error fetching schema: {str(e)}")
-        return None
+    query = f"DESCRIBE {FULL_TABLE_NAME}"
+    return execute_query(query, conn)
 
 
 def update_DataSchema(TableKey, new_schema):
